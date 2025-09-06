@@ -1,32 +1,36 @@
 using Microsoft.AspNetCore.Mvc;
-using Weather_Api_Proj.Services;
+using Weather_Api_Proj.Models.Enumerations;
+using Weather_Api_Proj.Services.Interfaces;
 
 namespace Weather_Api_Proj.Controllers;
 
 /// <summary>
 /// controller to handle weather-related requests.
 /// </summary>
-[ApiController, Route("api/[controller]")]
+[ApiController]
+[Route("api/[controller]")]
 public class WeatherController : ControllerBase
 {
-    private readonly WeatherService _weatherService;
+    private readonly IWeatherService _weatherService;
 
-    public WeatherController(WeatherService weatherService)
+    public WeatherController(IWeatherService weatherService)
     {
         _weatherService = weatherService;
     }
 
     /// <summary>
-    /// Return the weather data for a given city.
+    /// Get weather information for a specified city.
     /// </summary>
-    /// <param name="city">City name</param>
-    /// <returns>Weather data</returns>
+    /// <param name="city"></param>
+    /// <param name="unitOfMeasure"></param>
+    /// <param name="cultureCode"></param>
+    /// <returns></returns>
     [HttpGet("{city}")]
-    public async Task<IActionResult> GetWeather(string city)
+    public async Task<IActionResult> GetWeather(string city, [FromQuery] UnitOfMeasureEnum unitOfMeasure, [FromQuery] string cultureCode)
     {
         try
         {
-            var weatherData = await _weatherService.GetWeatherAsync(city);
+            var weatherData = await _weatherService.GetWeatherAsync(city, unitOfMeasure, cultureCode);
             return Ok(weatherData);
         }
         catch (HttpRequestException httpEx)

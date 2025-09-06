@@ -1,35 +1,46 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Weather_Api_Proj.Configurations;
+using Weather_Api_Proj.Models.DTOs.Responses;
+using Weather_Api_Proj.Models.Enumerations;
+using Weather_Api_Proj.Services.Interfaces;
 
 namespace Weather_Api_Proj.Services;
 
-public class WeatherService
+public class WeatherService : IWeatherService
 {
-    private readonly HttpClient _httpClient = new();
-    private readonly string _apiKey;
-    private readonly string _baseUrl;
+    private readonly HttpClient _httpClient;
+    private readonly OpenWeatherMapApiSettings _settings;
 
-    public WeatherService(HttpClient httpClient, IConfiguration configuration)
+    public WeatherService(HttpClient httpClient, IOptions<OpenWeatherMapApiSettings> options)
     {
         _httpClient = httpClient;
-        _apiKey = configuration["OpenWeatherMap:ApiKey"] ?? throw new InvalidOperationException("API Key not found in configuration.");
-        _baseUrl = configuration["OpenWeatherMap:BaseUrl"] ?? "https://api.openweathermap.org/data/2.5/";
+        _settings = options.Value;
     }
 
-    public async Task<object?> GetWeatherAsync(string city)
+    public async Task<WeatherResponse?> GetWeatherAsync(string city, UnitOfMeasureEnum unitOfMeasure = UnitOfMeasureEnum.Standard, string cultureCode = "en")
     {
-        var url = $"{_baseUrl}weather?q={city}&appid={_apiKey}&units=metric&lang=en";
+        var url = $"{_settings.BaseUrl}weather?q={city}&appid={_settings.ApiKey}&units={unitOfMeasure}&lang={cultureCode}";
 
         var response = await _httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
 
-        // DTO type.
-        var data = JsonSerializer.Deserialize<object>(json, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
 
-        return data;
+        var weatherResponse = new WeatherResponse
+        {
+            Description = root.GetProperty("weather")[0].GetProperty("description").GetString() ?? string.Empty,
+            Temp = root.GetProperty("main").GetProperty("temp").GetDouble(),
+            FeelsLike = root.GetProperty("main").GetProperty("feels_like").GetDouble(),
+            TempMin = root.GetProperty("main").GetProperty("temp_min").GetDouble(),
+            TempMax = root.GetProperty("main").GetProperty("temp_max").GetDouble(),
+            WindSpeed = root.GetProperty("wind").GetProperty("speed").GetDouble(),
+            City = root.GetProperty("name").GetString() ?? string.Empty
+        };
+
+        return weatherResponse;
     }
 }
